@@ -43,23 +43,54 @@ steps:
           azureSubscription: 'APIView prod deployment'
           scriptType: pscore
           scriptLocation: scriptPath
-          scriptPath: ${{ parameters.SourceRootPath }}/eng/common/scripts/Create-APIReview.ps1
-          # PackageInfoFiles example: @('a/file1.json','a/file2.json')
-          arguments: >
-            -PackageInfoFiles @('${{ join(''',''', parameters.PackageInfoFiles) }}')
-            -ArtifactList ('${{ convertToJson(parameters.Artifacts) }}' | ConvertFrom-Json | Select-Object Name)
-            -ArtifactPath '${{parameters.ArtifactPath}}'
-            -ArtifactName ${{ parameters.ArtifactName }}
-            -PackageName '${{parameters.PackageName}}'
-            -SourceBranch '$(Build.SourceBranchName)'
-            -DefaultBranch '$(DefaultBranch)'
-            -ConfigFileDir '${{parameters.ConfigFileDir}}'
-            -BuildId '$(Build.BuildId)'
-            -RepoName '$(Build.Repository.Name)'
-            -MarkPackageAsShipped $${{parameters.MarkPackageAsShipped}}
-        displayName: Create API Review
+          ${{ if eq(parameters.MarkPackageAsShipped, true) }}:
+            scriptPath: ${{ parameters.SourceRootPath }}/eng/common/scripts/Create-APIReview.ps1
+            arguments: >
+              -PackageInfoFiles @('${{ join(''',''', parameters.PackageInfoFiles) }}')
+              -ArtifactList ('${{ convertToJson(parameters.Artifacts) }}' | ConvertFrom-Json | Select-Object Name)
+              -ArtifactPath '${{parameters.ArtifactPath}}'
+              -ArtifactName ${{ parameters.ArtifactName }}
+              -PackageName '${{parameters.PackageName}}'
+              -SourceBranch '$(Build.SourceBranchName)'
+              -DefaultBranch '$(DefaultBranch)'
+              -ConfigFileDir '${{parameters.ConfigFileDir}}'
+              -BuildId '$(Build.BuildId)'
+              -RepoName '$(Build.Repository.Name)'
+              -MarkPackageAsShipped $true
+          ${{ else }}:
+            scriptPath: ${{ parameters.SourceRootPath }}/eng/common/scripts/Create-APIViewRevision.ps1
+            # PackageInfoFiles example: @('a/file1.json','a/file2.json')
+            arguments: >
+              -PackageInfoFiles @('${{ join(''',''', parameters.PackageInfoFiles) }}')
+              -ArtifactList ('${{ convertToJson(parameters.Artifacts) }}' | ConvertFrom-Json | Select-Object Name)
+              -ArtifactPath '${{parameters.ArtifactPath}}'
+              -ArtifactName ${{ parameters.ArtifactName }}
+              -PackageName '${{parameters.PackageName}}'
+              -SourceBranch '$(Build.SourceBranchName)'
+              -DefaultBranch '$(DefaultBranch)'
+              -ConfigFileDir '${{parameters.ConfigFileDir}}'
+              -BuildId '$(Build.BuildId)'
+              -RepoName '$(Build.Repository.Name)'
+        ${{ if eq(parameters.MarkPackageAsShipped, true) }}:
+          displayName: Mark API Review Released
+        ${{ else }}:
+          displayName: Create APIView Revision
         condition: >-
           and(
             succeededOrFailed(),
-            ne(variables['Skip.CreateApiReview'], 'true')
+            not(
+              and(
+                eq(variables['Skip.CreateApiReview'], 'true'),
+                in(
+                  lower(variables['Build.RequestedForEmail']),
+                  'bebroder@microsoft.com',
+                  'mharder@microsoft.com',
+                  'djurek@microsoft.com',
+                  'chononiw@microsoft.com',
+                  'raychen@microsoft.com',
+                  'trpresco@microsoft.com',
+                  'prmarott@microsoft.com'
+                )
+              )
+            )
           )
